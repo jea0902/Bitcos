@@ -22,10 +22,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
-const NAV_LINKS = [
+const NAV_LINKS = [ // 네비게이션 링크
   { href: "/", label: "홈" },
-  { href: "/simulation", label: "모의투자" },
+  { href: "/verified-strategies", label: "검증된 매매법" },
+  { href: "/research-lab", label: "매매법 연구소" },
+  { href: "/buffet-pick", label: "버핏원픽" },
+  { href: "/simulation", label: "모의 선물 투자" },
+  { href: "/community", label: "커뮤니티" },
+  { href: "/suggestions", label: "건의/설문" },
 ] as const;
 
 export function Navbar() {
@@ -44,17 +50,22 @@ export function Navbar() {
         >
           {/* 좌측: 로고 + 비전 */}
           <div className="flex items-center gap-3 sm:gap-4">
+
             <Link
               href="/"
               className="flex items-center gap-2 font-semibold text-foreground transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
               onClick={closeMobile}
             >
+                <Image
+                src="/images/logo1-noBG.png"
+                alt="Bitcos 로고"
+                width={24}
+                height={24}
+                className="h-6 w-6"
+                priority
+              />
               <span className="text-lg">Bitcos</span>
             </Link>
-
-            <span className="hidden text-xs text-muted-foreground sm:inline-block lg:text-sm">
-              투명한 데이터 분석으로 누구나 부자가 되게
-            </span>
           </div>
 
           {/* 우측: 데스크톱 메뉴 + 로그인/회원가입 */}

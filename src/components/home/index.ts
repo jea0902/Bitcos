@@ -10,3 +10,4 @@ export { LoginSignupCard } from "./LoginSignupCard";
 export { TopRankersBoard } from "./TopRankersBoard";
 export { InfluencerPositions } from "./InfluencerPositions";
 export { StockCard } from "./StockCard";
+export { StrategyCard } from "./StrategyCard";
