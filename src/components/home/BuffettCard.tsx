@@ -12,9 +12,13 @@
  * - 클릭 시 평가 상세 모달 (지표별 점수 + 실제 값)
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import type { BuffettCardResponse } from "@/lib/supabase/db-types";
+import type { 
+  BuffettCardResponse, 
+  PassReasonData, 
+  ValuationReasonData 
+} from "@/lib/supabase/db-types";
 
 /**
  * S&P500 + NASDAQ100 주요 종목 한글명 매핑
@@ -419,6 +423,27 @@ export function BuffettCard({ result }: BuffettCardProps) {
   // 한글 기업명 가져오기
   const koreanName = result.ticker ? KOREAN_NAMES[result.ticker] : null;
 
+  // pass_reason JSON 파싱 (상세 지표)
+  const passData = useMemo((): PassReasonData | null => {
+    if (!result.pass_reason) return null;
+    try {
+      return JSON.parse(result.pass_reason) as PassReasonData;
+    } catch {
+      // 기존 텍스트 형식인 경우 null 반환
+      return null;
+    }
+  }, [result.pass_reason]);
+
+  // valuation_reason JSON 파싱 (적정가 분석)
+  const valuationData = useMemo((): ValuationReasonData | null => {
+    if (!result.valuation_reason) return null;
+    try {
+      return JSON.parse(result.valuation_reason) as ValuationReasonData;
+    } catch {
+      return null;
+    }
+  }, [result.valuation_reason]);
+
   // 카드 스타일 결정
   const getCardStyle = () => {
     if (isUndervalued && isBuy) {
@@ -724,76 +749,104 @@ export function BuffettCard({ result }: BuffettCardProps) {
             </div>
 
             {/* 우량주 평가 상세 */}
-            <div className="mb-6">
-              <h3 className="mb-4 text-lg font-bold text-foreground">
-                📊 우량주 평가 상세
-              </h3>
+            {passData ? (
+              <div className="mb-6">
+                <h3 className="mb-4 text-lg font-bold text-foreground">
+                  📊 우량주 평가 상세
+                </h3>
 
-              <div className="space-y-4">
-                {/* ROE */}
-                <MetricRow
-                  metric={METRIC_INFO.roe}
-                  score={result.roe_score}
-                  actualValue={result.avg_roe}
-                  valueLabel="평균 ROE"
-                  valueUnit="%"
-                  getScoreBarColor={getScoreBarColor}
-                />
+                {/* 강점 요약 */}
+                {passData.highlights.length > 0 && (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {passData.highlights.map((h, i) => (
+                      <span
+                        key={i}
+                        className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-medium text-amber-300"
+                      >
+                        💡 {h}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-                {/* ROIC */}
-                <MetricRow
-                  metric={METRIC_INFO.roic}
-                  score={result.roic_score}
-                  actualValue={result.avg_roic}
-                  valueLabel="평균 ROIC"
-                  valueUnit="%"
-                  getScoreBarColor={getScoreBarColor}
-                />
+                <div className="space-y-4">
+                  {/* ROE */}
+                  <MetricRow
+                    metric={METRIC_INFO.roe}
+                    score={passData.scores.roe}
+                    actualValue={passData.values.avg_roe}
+                    valueLabel="평균 ROE"
+                    valueUnit="%"
+                    getScoreBarColor={getScoreBarColor}
+                  />
 
-                {/* Net Margin */}
-                <MetricRow
-                  metric={METRIC_INFO.margin}
-                  score={result.margin_score}
-                  actualValue={result.avg_net_margin}
-                  valueLabel="평균 순이익률"
-                  valueUnit="%"
-                  getScoreBarColor={getScoreBarColor}
-                />
+                  {/* ROIC */}
+                  <MetricRow
+                    metric={METRIC_INFO.roic}
+                    score={passData.scores.roic}
+                    actualValue={passData.values.avg_roic}
+                    valueLabel="평균 ROIC"
+                    valueUnit="%"
+                    getScoreBarColor={getScoreBarColor}
+                  />
 
-                {/* Trend */}
-                <MetricRow
-                  metric={METRIC_INFO.trend}
-                  score={result.trend_score}
-                  actualValue={null}
-                  valueLabel=""
-                  valueUnit=""
-                  getScoreBarColor={getScoreBarColor}
-                />
+                  {/* Net Margin */}
+                  <MetricRow
+                    metric={METRIC_INFO.margin}
+                    score={passData.scores.margin}
+                    actualValue={passData.values.avg_net_margin}
+                    valueLabel="평균 순이익률"
+                    valueUnit="%"
+                    getScoreBarColor={getScoreBarColor}
+                  />
 
-                {/* Health */}
-                <MetricRow
-                  metric={METRIC_INFO.health}
-                  score={result.health_score}
-                  actualValue={result.debt_ratio}
-                  valueLabel="부채비율"
-                  valueUnit="%"
-                  getScoreBarColor={getScoreBarColor}
-                />
+                  {/* Trend */}
+                  <MetricRow
+                    metric={METRIC_INFO.trend}
+                    score={passData.scores.trend}
+                    actualValue={null}
+                    valueLabel=""
+                    valueUnit=""
+                    getScoreBarColor={getScoreBarColor}
+                  />
 
-                {/* Cash */}
-                <MetricRow
-                  metric={METRIC_INFO.cash}
-                  score={result.cash_score}
-                  actualValue={result.avg_fcf_margin}
-                  valueLabel="평균 FCF Margin"
-                  valueUnit="%"
-                  getScoreBarColor={getScoreBarColor}
-                />
+                  {/* Health */}
+                  <MetricRow
+                    metric={METRIC_INFO.health}
+                    score={passData.scores.health}
+                    actualValue={passData.values.debt_ratio}
+                    valueLabel="부채비율"
+                    valueUnit="%"
+                    getScoreBarColor={getScoreBarColor}
+                  />
+
+                  {/* Cash */}
+                  <MetricRow
+                    metric={METRIC_INFO.cash}
+                    score={passData.scores.cash}
+                    actualValue={passData.values.avg_fcf_margin}
+                    valueLabel="평균 FCF Margin"
+                    valueUnit="%"
+                    getScoreBarColor={getScoreBarColor}
+                  />
+                </div>
               </div>
-            </div>
+            ) : (
+              // 기존 텍스트 형식인 경우
+              result.pass_reason && (
+                <div className="mb-6">
+                  <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+                    📊 평가 요약
+                  </h3>
+                  <div className="whitespace-pre-wrap rounded-lg bg-background/20 p-4 text-sm text-foreground/90">
+                    {result.pass_reason}
+                  </div>
+                </div>
+              )
+            )}
 
             {/* 저평가 분석 */}
-            {isPassed && (
+            {valuationData ? (
               <div className="mb-6">
                 <h3 className="mb-4 text-lg font-bold text-foreground">
                   💰 저평가 분석
@@ -803,23 +856,13 @@ export function BuffettCard({ result }: BuffettCardProps) {
                     <div>
                       <p className="text-muted-foreground">EPS 연평균 성장률</p>
                       <p className="text-lg font-bold text-foreground">
-                        {result.eps_cagr !== null
-                          ? `${result.eps_cagr.toFixed(1)}%`
-                          : "-"}
+                        {valuationData.eps_cagr.toFixed(1)}%
                       </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">적용 PER</p>
                       <p className="text-lg font-bold text-foreground">
-                        {result.eps_cagr !== null
-                          ? result.eps_cagr >= 15
-                            ? "18배 (고성장)"
-                            : result.eps_cagr >= 8
-                              ? "12배 (중성장)"
-                              : result.eps_cagr >= 0
-                                ? "10배 (안정)"
-                                : "8배 (보수적)"
-                          : "-"}
+                        {valuationData.applied_per}배 ({valuationData.per_label})
                       </p>
                     </div>
                   </div>
@@ -828,6 +871,18 @@ export function BuffettCard({ result }: BuffettCardProps) {
                   </p>
                 </div>
               </div>
+            ) : (
+              // 기존 텍스트 형식인 경우
+              result.valuation_reason && isPassed && (
+                <div className="mb-6">
+                  <h3 className="mb-3 text-sm font-semibold text-muted-foreground">
+                    💰 적정가 분석
+                  </h3>
+                  <div className="whitespace-pre-wrap rounded-lg bg-background/20 p-4 text-sm text-foreground/90">
+                    {result.valuation_reason}
+                  </div>
+                </div>
+              )
             )}
 
             {/* PASS가 아닌 경우 안내 */}

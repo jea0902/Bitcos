@@ -215,13 +215,6 @@ export function CreatePostDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          {/* 임시 안내 */}
-          <div className="rounded-md bg-muted/50 border border-border px-3 py-2">
-            <p className="text-xs text-muted-foreground">
-              💡 로그인 기능 추가 전까지 모든 게시글은 "<strong>익명</strong>"으로 작성됩니다.
-            </p>
-          </div>
-
           {/* 자유게시판: 카테고리 선택 */}
           {boardType === 'free' && (
             <div className="space-y-2">

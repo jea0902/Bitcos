@@ -38,122 +38,84 @@ export function Navbar() {
 
   // 사용자 세션 확인
   useEffect(() => {
-    const supabase = createClient();
-    let mounted = true;
-
-    // 타임아웃 설정 (3초 후 강제 로딩 해제)
-    const timeout = setTimeout(() => {
-      console.log('[Navbar] ⚠️ Loading timeout - forcing isLoading to false');
-      if (mounted) setIsLoading(false);
-    }, 3000);
-
-    // 초기 세션 확인
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-      console.log('[Navbar] 🔍 Initial session check:', session?.user?.id, error);
+    const loadUser = async () => {
+      const supabase = createClient();
       
       try {
-        if (session?.user) {
-          setSessionId(session.user.id);
-          setHasSession(true);
-          console.log('[Navbar] 📝 Fetching user from users table...');
-          
-          // users 테이블에서 닉네임 가져오기
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('nickname')
-            .eq('user_id', session.user.id)
-            .is('deleted_at', null)
-            .maybeSingle();
-
-          console.log('[Navbar] 📊 User data result:', userData, userError);
-          
-          if (userData && mounted) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email || '',
-              nickname: userData.nickname,
-            });
-            console.log('[Navbar] ✅ User loaded:', userData.nickname);
-          } else {
-            console.log('[Navbar] ⚠️ Session exists but no user data - redirecting to signup');
-            // Session은 있지만 users 테이블에 데이터가 없음 → 닉네임 입력 필요
-            if (mounted && typeof window !== 'undefined') {
-              window.location.href = '/signup?step=nickname';
-            }
-          }
-        } else {
-          console.log('[Navbar] ℹ️ No session found');
-          setHasSession(false);
-        }
-      } catch (err) {
-        console.error('[Navbar] ❌ Error loading user:', err);
-      } finally {
-        clearTimeout(timeout);
-        if (mounted) {
+        console.log('[Navbar] 🚀 Starting user load...');
+        
+        // 세션 확인
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        console.log('[Navbar] 📍 Session:', session?.user?.id, sessionError);
+        
+        if (!session?.user) {
+          console.log('[Navbar] ❌ No session');
           setIsLoading(false);
-          console.log('[Navbar] ✅ Loading complete, isLoading set to false');
+          return;
         }
-      }
-    }).catch((err) => {
-      console.error('[Navbar] ❌ Session error:', err);
-      clearTimeout(timeout);
-      if (mounted) setIsLoading(false);
-    });
-
-    // 세션 변경 감지
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('[Navbar] Auth state changed:', _event, session?.user?.id);
-      setSessionId(session?.user?.id || '');
-      
-      try {
-        if (session?.user) {
-          setHasSession(true);
-          console.log('[Navbar] Fetching user data for:', session.user.id);
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('nickname')
-            .eq('user_id', session.user.id)
-            .is('deleted_at', null)
-            .maybeSingle();
-
-          console.log('[Navbar] User query result:', userData, userError);
-
-          if (userData) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email || '',
-              nickname: userData.nickname,
-            });
-            console.log('[Navbar] ✅ User set successfully:', userData.nickname);
-          } else {
-            console.log('[Navbar] ⚠️ Auth state: session exists but no user data');
-            setUser(null);
-          }
-        } else {
-          console.log('[Navbar] No session, clearing user');
-          setHasSession(false);
-          setUser(null);
+        
+        setSessionId(session.user.id);
+        setHasSession(true);
+        
+        // users 테이블 조회
+        console.log('[Navbar] 🔍 Querying users table...');
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .select('nickname')
+          .eq('user_id', session.user.id)
+          .is('deleted_at', null)
+          .single();  // maybeSingle 대신 single 사용
+        
+        console.log('[Navbar] 📊 Query result:', userData, userError);
+        
+        if (userError) {
+          console.error('[Navbar] ❌ Query error:', userError);
+          setIsLoading(false);
+          return;
         }
+        
+        if (userData) {
+          console.log('[Navbar] ✅ User found:', userData.nickname);
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            nickname: userData.nickname,
+          });
+        }
+        
       } catch (err) {
-        console.error('[Navbar] Auth state change error:', err);
-        setUser(null);
+        console.error('[Navbar] ❌ Error:', err);
+      } finally {
+        setIsLoading(false);
+        console.log('[Navbar] ✅ Loading complete');
       }
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
     };
+    
+    loadUser();
   }, []);
 
   // 로그아웃 핸들러
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    setUser(null);
-    closeMobile();
+    try {
+      console.log('[Navbar] 🔴 Logout initiated');
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('[Navbar] ❌ Logout error:', error);
+        throw error;
+      }
+      
+      console.log('[Navbar] ✅ Logout successful');
+      setUser(null);
+      closeMobile();
+      
+      // 페이지 새로고침하여 상태 완전 초기화
+      window.location.href = '/';
+    } catch (err) {
+      console.error('[Navbar] ❌ Logout failed:', err);
+      alert('로그아웃에 실패했습니다. 다시 시도해주세요.');
+    }
   };
 
   return (
@@ -163,7 +125,7 @@ export function Navbar() {
           className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
           aria-label="메인 네비게이션"
         >
-          {/* 좌측: 로고 + 비전 */}
+          {/* 좌측: 로고 */}
           <div className="flex items-center gap-3 sm:gap-4">
 
             <Link
@@ -171,15 +133,17 @@ export function Navbar() {
               className="flex items-center gap-2 font-semibold text-foreground transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
               onClick={closeMobile}
             >
-                <Image
-                src="/images/logo1-noBG.png"
+              {/* 로고 이미지 - 네비게이션 바 높이를 거의 다 활용 (h-14 = 56px, 여기서는 h-13 = 52px 사용) */}
+              <Image
+                src="/images/logo.png"
                 alt="Bitcos 로고"
-                width={24}
-                height={24}
-                className="h-6 w-6"
+                width={52}
+                height={52}
+                className="h-13 w-auto object-contain"
+                style={{ height: '52px' }}
                 priority
               />
-              <span className="text-lg">Bitcos</span>
+              <span className="text-lg">비트코스</span>
             </Link>
           </div>
 
@@ -195,10 +159,7 @@ export function Navbar() {
               </Link>
             ))}
             <div className="flex items-center gap-2 border-l border-border pl-4">
-              {/* 디버그: 항상 상태 표시 */}
-              <div className="text-xs text-muted-foreground px-2">
-                Loading: {isLoading ? 'Y' : 'N'} | Session: {sessionId ? 'Y' : 'N'} | User: {user ? user.nickname : 'N'}
-              </div>
+              {/* 디버그 텍스트 제거 */}
               {isLoading ? (
                 <div className="h-8 w-20 animate-pulse rounded bg-muted" />
               ) : user ? (

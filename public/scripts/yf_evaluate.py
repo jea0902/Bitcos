@@ -252,67 +252,87 @@ def get_trust_grade(years: int) -> Tuple[int, str, str]:
 
 
 # ============================================================================
-# 요약문 생성
+# 요약문 생성 (JSON 형태로 상세 정보 포함)
 # ============================================================================
 
 def generate_pass_reason(result_data: Dict) -> Optional[str]:
-    """우량주 통과 이유 요약문 생성"""
-    if result_data["total_score"] < 85:
-        return None
+    """
+    우량주 평가 상세 정보 생성 (JSON 형태)
     
-    ticker = result_data["ticker"]
-    total_score = result_data["total_score"]
-    years = result_data["years_data"]
+    프론트엔드에서 파싱하여 모달에 상세 지표 표시
+    - scores: 개별 항목 점수
+    - values: 실제 지표 값
+    - highlights: 강점 요약
+    """
+    # 점수와 상관없이 모든 종목에 대해 상세 정보 생성
+    data = {
+        "summary": f"총점 {result_data['total_score']:.0f}점 ({result_data['years_data']}년 데이터 기준)",
+        "passed": result_data["total_score"] >= 85,
+        "scores": {
+            "roe": result_data.get("roe_score", 0),
+            "roic": result_data.get("roic_score", 0),
+            "margin": result_data.get("margin_score", 0),
+            "trend": result_data.get("trend_score", 0),
+            "health": result_data.get("health_score", 0),
+            "cash": result_data.get("cash_score", 0),
+        },
+        "values": {
+            "avg_roe": round(result_data.get("avg_roe", 0), 2),
+            "avg_roic": round(result_data.get("avg_roic", 0), 2),
+            "avg_net_margin": round(result_data.get("avg_net_margin", 0), 2),
+            "avg_fcf_margin": round(result_data.get("avg_fcf_margin", 0), 2),
+            "debt_ratio": round(result_data.get("debt_ratio", 0), 2),
+        },
+        "highlights": [],
+    }
     
-    grade_num, grade_text, grade_stars = get_trust_grade(years)
-    
-    summary = f"[{ticker} - 총점 {total_score:.0f}점 / 신뢰등급 {grade_text} {grade_stars}]\n"
-    summary += f"✅ 우량주 통과 ({years}년 데이터 기준)\n"
-    
-    highlights = []
+    # 강점 추출
     if result_data.get("roe_score", 0) >= 20:
-        highlights.append("지속적 고수익성")
+        data["highlights"].append("지속적 고수익성")
     if result_data.get("roic_score", 0) >= 15:
-        highlights.append("우수한 자본효율")
+        data["highlights"].append("우수한 자본효율")
     if result_data.get("margin_score", 0) >= 13:
-        highlights.append("안정적 수익구조")
+        data["highlights"].append("안정적 수익구조")
     if result_data.get("health_score", 0) >= 13:
-        highlights.append("건전한 재무")
+        data["highlights"].append("건전한 재무")
     if result_data.get("cash_score", 0) >= 7:
-        highlights.append("강한 현금창출")
+        data["highlights"].append("강한 현금창출")
     
-    if highlights:
-        summary += f"💡 {', '.join(highlights)}"
-    
-    return summary
+    return json.dumps(data, ensure_ascii=False)
 
 
 def generate_valuation_reason(result_data: Dict) -> Optional[str]:
-    """적정가 산정 이유 요약문 생성"""
-    if result_data["total_score"] < 85:
-        return None
+    """
+    적정가 분석 상세 정보 생성 (JSON 형태)
     
-    ticker = result_data["ticker"]
-    current_price = result_data["current_price"]
-    intrinsic_value = result_data["intrinsic_value"]
-    gap_pct = result_data["gap_pct"]
+    프론트엔드에서 파싱하여 저평가 분석 표시
+    """
     eps_cagr = result_data.get("eps_cagr", 0)
     
-    summary = f"[{ticker} - 적정가 분석]\n"
-    summary += f"• 현재가: ${current_price:.2f}\n"
-    summary += f"• 적정가: ${intrinsic_value:.2f}\n"
-    summary += f"• 상승여력: {gap_pct:+.1f}%\n"
-    
-    if gap_pct >= 50:
-        summary += "🎯 강력한 매수 기회"
-    elif gap_pct >= 20:
-        summary += "🎯 양호한 매수 기회"
-    elif gap_pct >= 0:
-        summary += "🎯 적정가 근접"
+    # 적용 PER 결정
+    if eps_cagr >= 15.0:
+        applied_per = 18
+        per_label = "고성장"
+    elif eps_cagr >= 8.0:
+        applied_per = 12
+        per_label = "중성장"
+    elif eps_cagr >= 0.0:
+        applied_per = 10
+        per_label = "안정"
     else:
-        summary += "⚠️ 고평가 상태"
+        applied_per = 8
+        per_label = "보수적"
     
-    return summary
+    data = {
+        "eps_cagr": round(eps_cagr, 2),
+        "applied_per": applied_per,
+        "per_label": per_label,
+        "current_price": round(result_data.get("current_price", 0), 2),
+        "intrinsic_value": round(result_data.get("intrinsic_value", 0), 2),
+        "gap_pct": round(result_data.get("gap_pct", 0), 2),
+    }
+    
+    return json.dumps(data, ensure_ascii=False)
 
 
 # ============================================================================
@@ -631,7 +651,7 @@ def run_evaluation(tickers: List[str], date: str, year: str) -> List[Dict]:
     passed = []
     undervalued = []
     
-    for ticker in tqdm(tickers, desc="평가 진행"):
+    for ticker in tqdm(tickers, desc="평가 진행", ncols=80, ascii=True, leave=True):
         result = evaluate_ticker(ticker, date, year)
         if result:
             results.append(result)

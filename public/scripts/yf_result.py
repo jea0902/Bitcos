@@ -108,14 +108,10 @@ def save_buffett_result(supabase: Client, run_id: int, stock_id: int,
     """
     buffett_result 테이블에 평가 결과 저장
     
-    저장 필드:
-    - 기본 정보: run_id, stock_id, total_score, pass_status 등
-    - 개별 점수: roe_score, roic_score, margin_score, trend_score, health_score, cash_score
-    - 실제 지표: avg_roe, avg_roic, avg_net_margin, avg_fcf_margin, debt_ratio, eps_cagr
+    상세 지표는 pass_reason, valuation_reason에 JSON으로 포함됨
     """
     try:
         result = supabase.table("buffett_result").insert({
-            # 기본 정보
             "run_id": run_id,
             "stock_id": stock_id,
             "total_score": eval_result.get("total_score"),
@@ -130,21 +126,7 @@ def save_buffett_result(supabase: Client, run_id: int, stock_id: int,
             "trust_grade_text": eval_result.get("trust_grade_text"),
             "trust_grade_stars": eval_result.get("trust_grade_stars"),
             "pass_reason": eval_result.get("pass_reason"),
-            "valuation_reason": eval_result.get("valuation_reason"),
-            # 개별 점수 (총점 세부 내역)
-            "roe_score": eval_result.get("roe_score"),
-            "roic_score": eval_result.get("roic_score"),
-            "margin_score": eval_result.get("margin_score"),
-            "trend_score": eval_result.get("trend_score"),
-            "health_score": eval_result.get("health_score"),
-            "cash_score": eval_result.get("cash_score"),
-            # 실제 지표 값
-            "avg_roe": eval_result.get("avg_roe"),
-            "avg_roic": eval_result.get("avg_roic"),
-            "avg_net_margin": eval_result.get("avg_net_margin"),
-            "avg_fcf_margin": eval_result.get("avg_fcf_margin"),
-            "debt_ratio": eval_result.get("debt_ratio"),
-            "eps_cagr": eval_result.get("eps_cagr"),
+            "valuation_reason": eval_result.get("valuation_reason")
         }).execute()
         
         return True
@@ -213,7 +195,7 @@ def run_evaluation_and_save(tickers: List[str], date: str, year: str,
     undervalued = []
     saved_count = 0
     
-    for ticker in tqdm(tickers, desc="평가 + 저장"):
+    for ticker in tqdm(tickers, desc="평가 + 저장", ncols=80, ascii=True, leave=True):
         # 평가
         eval_result = evaluate_ticker(ticker, date, year)
         

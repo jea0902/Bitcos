@@ -416,6 +416,8 @@ export default function CommunityPage() {
             💡 커뮤니티 이용 안내
           </h3>
           <ul className="space-y-1 text-xs text-muted-foreground">
+            <li>• <strong>글 작성</strong>: 로그인한 회원만 글을 작성할 수 있습니다</li>
+            <li>• <strong>댓글 및 좋아요</strong>: 비회원도 가능합니다 (익명으로 표시됨)</li>
             <li>• <strong>자유게시판</strong>: 글 작성 시 [자유] 또는 [건의] 카테고리를 선택할 수 있습니다</li>
             <li>• <strong>관점 게시판</strong>: 시장 분석, 투자 전략 등 깊이 있는 인사이트를 공유하세요</li>
             <li>• <strong>설문/공지</strong>: 관리자가 작성한 공지사항은 게시판 상단에 고정됩니다</li>
@@ -427,9 +429,9 @@ export default function CommunityPage() {
           <h3 className="text-sm font-semibold text-destructive mb-2">
             ⚠️ 주의사항
           </h3>
-          <ul className="space-y-1 text-xs text-muted-foreground">
-            <li>• <strong className="text-destructive">욕설 및 비하 발언</strong>은 사전 고지 없이 삭제됩니다</li>
-            <li>• <strong className="text-destructive">투자 판단 및 손실</strong>에 대한 책임은 전적으로 본인에게 있습니다</li>
+          <ul className="space-y-1 text-xs text-destructive">
+            <li>• <strong>욕설 및 비하 발언, 도배</strong>는 사전 고지 없이 삭제됩니다</li>
+            <li>• <strong>투자 판단 및 손실</strong>에 대한 책임은 전적으로 본인에게 있습니다</li>
             <li>• 본 커뮤니티의 모든 정보는 참고용이며, 투자 권유가 아닙니다</li>
           </ul>
         </div>

@@ -27,23 +27,9 @@ export type BuffettResultRow = {
   trust_grade: number | null;
   trust_grade_text: string | null;
   trust_grade_stars: string | null;
-  pass_reason: string | null;
-  valuation_reason: string | null;
+  pass_reason: string | null;  // JSON 형태로 상세 지표 포함
+  valuation_reason: string | null;  // JSON 형태로 적정가 분석 포함
   created_at: string | null;
-  // 개별 점수 (총점 세부 내역)
-  roe_score: number | null;
-  roic_score: number | null;
-  margin_score: number | null;
-  trend_score: number | null;
-  health_score: number | null;
-  cash_score: number | null;
-  // 실제 지표 값
-  avg_roe: number | null;
-  avg_roic: number | null;
-  avg_net_margin: number | null;
-  avg_fcf_margin: number | null;
-  debt_ratio: number | null;
-  eps_cagr: number | null;
 };
 
 /** stocks: 미국 주식 마스터 (조인 시 사용) */
@@ -89,23 +75,41 @@ export type BuffettCardResponse = {
   trust_grade: number | null;
   trust_grade_text: string | null;
   trust_grade_stars: string | null;
-  pass_reason: string | null;
-  valuation_reason: string | null;
+  pass_reason: string | null;  // JSON 형태로 상세 지표 포함
+  valuation_reason: string | null;  // JSON 형태로 적정가 분석 포함
   created_at: string | null;
-  // 개별 점수 (총점 세부 내역)
-  roe_score: number | null;
-  roic_score: number | null;
-  margin_score: number | null;
-  trend_score: number | null;
-  health_score: number | null;
-  cash_score: number | null;
-  // 실제 지표 값
-  avg_roe: number | null;
-  avg_roic: number | null;
-  avg_net_margin: number | null;
-  avg_fcf_margin: number | null;
-  debt_ratio: number | null;
-  eps_cagr: number | null;
+};
+
+/** pass_reason JSON 파싱 결과 타입 */
+export type PassReasonData = {
+  summary: string;
+  passed: boolean;
+  scores: {
+    roe: number;
+    roic: number;
+    margin: number;
+    trend: number;
+    health: number;
+    cash: number;
+  };
+  values: {
+    avg_roe: number;
+    avg_roic: number;
+    avg_net_margin: number;
+    avg_fcf_margin: number;
+    debt_ratio: number;
+  };
+  highlights: string[];
+};
+
+/** valuation_reason JSON 파싱 결과 타입 */
+export type ValuationReasonData = {
+  eps_cagr: number;
+  applied_per: number;
+  per_label: string;
+  current_price: number;
+  intrinsic_value: number;
+  gap_pct: number;
 };
 
 // =========================================

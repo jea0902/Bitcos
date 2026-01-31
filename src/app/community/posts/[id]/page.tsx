@@ -85,8 +85,40 @@ export default function PostDetailPage() {
   const [images, setImages] = useState<{image_id: number; image_url: string; sort_order: number}[]>([]);
   const [isLoadingImages, setIsLoadingImages] = useState(false);
 
-  // 임시: 고정 닉네임
-  const authorName = '익명';
+  // 로그인 사용자 정보
+  const [currentUser, setCurrentUser] = useState<{ id: string; nickname: string } | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
+
+  // 로그인 사용자 정보 조회
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client');
+        const supabase = createClient();
+        
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('user_id, nickname')
+            .eq('user_id', session.user.id)
+            .is('deleted_at', null)
+            .single();
+          
+          if (userData) {
+            setCurrentUser({ id: userData.user_id, nickname: userData.nickname });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch current user:', err);
+      } finally {
+        setIsLoadingUser(false);
+      }
+    };
+
+    fetchCurrentUser();
+  }, []);
 
   // 게시글 조회
   useEffect(() => {
@@ -119,24 +151,31 @@ export default function PostDetailPage() {
     }
   }, [postId]);
 
-  // 좋아요 상태 조회
+  // 좋아요 상태 조회 (LocalStorage + DB 하이브리드)
   useEffect(() => {
     const fetchLikeStatus = async () => {
       try {
-        const response = await fetch(`/api/community/posts/${postId}/like`);
-        if (response.ok) {
-          const data = await response.json();
-          setIsLiked(data.liked);
+        if (currentUser) {
+          // 로그인 사용자: DB에서 조회
+          const response = await fetch(`/api/community/posts/${postId}/like?user_id=${currentUser.id}`);
+          if (response.ok) {
+            const data = await response.json();
+            setIsLiked(data.liked);
+          }
+        } else {
+          // 비로그인 사용자: LocalStorage에서 확인
+          const likedPosts = JSON.parse(localStorage.getItem('liked_posts') || '[]');
+          setIsLiked(likedPosts.includes(Number(postId)));
         }
       } catch (err) {
         console.error('Failed to fetch like status:', err);
       }
     };
 
-    if (postId) {
+    if (postId && !isLoadingUser) {
       fetchLikeStatus();
     }
-  }, [postId]);
+  }, [postId, currentUser, isLoadingUser]);
 
   // 댓글 목록 조회
   useEffect(() => {
@@ -261,26 +300,67 @@ export default function PostDetailPage() {
     fetchPost();
   };
 
-  // 좋아요 토글
+  // 좋아요 토글 (LocalStorage + DB 하이브리드)
   const handleLikeToggle = async () => {
     if (isLiking) return;
 
     setIsLiking(true);
     try {
-      const response = await fetch(`/api/community/posts/${postId}/like`, {
-        method: 'POST',
-      });
+      const postIdNum = Number(postId);
+      
+      if (currentUser) {
+        // 로그인 사용자: DB에 저장
+        const response = await fetch(`/api/community/posts/${postId}/like`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: currentUser.id,
+          }),
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setIsLiked(data.liked);
+        if (response.ok) {
+          const data = await response.json();
+          setIsLiked(data.liked);
+          
+          if (post) {
+            setPost({
+              ...post,
+              like_count: data.liked ? post.like_count + 1 : post.like_count - 1,
+            });
+          }
+        }
+      } else {
+        // 비로그인 사용자: LocalStorage + DB에 저장
+        const likedPosts: number[] = JSON.parse(localStorage.getItem('liked_posts') || '[]');
+        const alreadyLiked = likedPosts.includes(postIdNum);
         
-        // 게시글 다시 조회 (like_count 업데이트)
-        if (post) {
-          setPost({
-            ...post,
-            like_count: data.liked ? post.like_count + 1 : post.like_count - 1,
-          });
+        const response = await fetch(`/api/community/posts/${postId}/like`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: null,
+            action: alreadyLiked ? 'unlike' : 'like',
+          }),
+        });
+
+        if (response.ok) {
+          if (alreadyLiked) {
+            // 좋아요 취소
+            const newLikedPosts = likedPosts.filter(id => id !== postIdNum);
+            localStorage.setItem('liked_posts', JSON.stringify(newLikedPosts));
+            setIsLiked(false);
+            if (post) {
+              setPost({ ...post, like_count: post.like_count - 1 });
+            }
+          } else {
+            // 좋아요 추가
+            likedPosts.push(postIdNum);
+            localStorage.setItem('liked_posts', JSON.stringify(likedPosts));
+            setIsLiked(true);
+            if (post) {
+              setPost({ ...post, like_count: post.like_count + 1 });
+            }
+          }
         }
       }
     } catch (err) {
@@ -290,6 +370,21 @@ export default function PostDetailPage() {
     }
   };
 
+  // 비회원 닉네임 생성 함수
+  const getAnonymousNickname = (): string => {
+    // LocalStorage에서 기존 닉네임 확인
+    let nickname = localStorage.getItem('anonymous_nickname');
+    
+    if (!nickname) {
+      // 랜덤 4자리 숫자 생성
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      nickname = `익명${randomNum}`;
+      localStorage.setItem('anonymous_nickname', nickname);
+    }
+    
+    return nickname;
+  };
+
   // 댓글 작성
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -297,23 +392,35 @@ export default function PostDetailPage() {
 
     setIsSubmittingComment(true);
     try {
+      // 로그인 사용자: 닉네임 사용, 비로그인: 랜덤 익명 닉네임
+      const authorName = currentUser ? currentUser.nickname : getAnonymousNickname();
+      
       const response = await fetch(`/api/community/posts/${postId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: newComment.trim(),
           author_name: authorName,
+          user_id: currentUser?.id || null,
         }),
       });
 
       if (response.ok) {
+        const data = await response.json();
         setNewComment('');
+        
+        // 비회원인 경우 내 댓글 ID 저장
+        if (!currentUser && data.comment) {
+          const myComments: number[] = JSON.parse(localStorage.getItem('my_comments') || '[]');
+          myComments.push(data.comment.comment_id);
+          localStorage.setItem('my_comments', JSON.stringify(myComments));
+        }
         
         // 댓글 목록 다시 조회
         const commentsResponse = await fetch(`/api/community/posts/${postId}/comments`);
         if (commentsResponse.ok) {
-          const data = await commentsResponse.json();
-          setComments(data.comments || []);
+          const commentsData = await commentsResponse.json();
+          setComments(commentsData.comments || []);
         }
 
         // 게시글 comment_count 업데이트
@@ -338,6 +445,9 @@ export default function PostDetailPage() {
 
     setIsSubmittingComment(true);
     try {
+      // 로그인 사용자: 닉네임 사용, 비로그인: 랜덤 익명 닉네임
+      const authorName = currentUser ? currentUser.nickname : getAnonymousNickname();
+      
       const response = await fetch(`/api/community/posts/${postId}/comments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -345,18 +455,27 @@ export default function PostDetailPage() {
           content: replyContent.trim(),
           author_name: authorName,
           parent_comment_id: parentId,
+          user_id: currentUser?.id || null,
         }),
       });
 
       if (response.ok) {
+        const data = await response.json();
         setReplyContent('');
         setReplyTo(null);
+        
+        // 비회원인 경우 내 댓글 ID 저장
+        if (!currentUser && data.comment) {
+          const myComments: number[] = JSON.parse(localStorage.getItem('my_comments') || '[]');
+          myComments.push(data.comment.comment_id);
+          localStorage.setItem('my_comments', JSON.stringify(myComments));
+        }
         
         // 댓글 목록 다시 조회
         const commentsResponse = await fetch(`/api/community/posts/${postId}/comments`);
         if (commentsResponse.ok) {
-          const data = await commentsResponse.json();
-          setComments(data.comments || []);
+          const commentsData = await commentsResponse.json();
+          setComments(commentsData.comments || []);
         }
 
         // 게시글 comment_count 업데이트

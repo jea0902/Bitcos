@@ -37,7 +37,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { content, author_name, parent_comment_id } = body;
+    const { content, author_name, parent_comment_id, user_id } = body;
 
     // 입력 검증
     if (!content || content.trim().length === 0) {
@@ -125,15 +125,17 @@ export async function POST(
     const sanitizedContent = content.replace(/<script[^>]*>.*?<\/script>/gi, '').trim();
     const sanitizedAuthorName = author_name.replace(/<[^>]*>/g, '').trim();
 
-    // 임시: user_id는 고정값 (인증 미구현)
-    const tempUserId = '00000000-0000-0000-0000-000000000000';
+    // user_id 처리 (로그인 사용자 vs 익명)
+    // 익명 사용자는 고정 UUID 사용
+    const ANONYMOUS_USER_ID = '00000000-0000-0000-0000-000000000000';
+    const finalUserId = user_id || ANONYMOUS_USER_ID;
 
     // 댓글 저장
     const { data, error } = await supabase
       .from('board_comments')
       .insert({
         post_id: postId,
-        user_id: tempUserId,
+        user_id: finalUserId,
         content: sanitizedContent,
         author_name: sanitizedAuthorName,
         parent_comment_id: parent_comment_id ? parseInt(parent_comment_id, 10) : null,

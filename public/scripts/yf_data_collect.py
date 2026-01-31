@@ -258,7 +258,7 @@ def collect_financials(tickers: List[str], year: str):
     success = 0
     failed = 0
     
-    for ticker in tqdm(tickers, desc="재무제표 수집"):
+    for ticker in tqdm(tickers, desc="재무제표 수집", ncols=80, ascii=True, leave=True):
         data = collect_financials_for_ticker(ticker, year)
         
         if data:
@@ -311,7 +311,7 @@ def collect_prices(tickers: List[str], date: str):
     success = 0
     failed = 0
     
-    for ticker in tqdm(tickers, desc="현재가 수집"):
+    for ticker in tqdm(tickers, desc="현재가 수집", ncols=80, ascii=True, leave=True):
         data = collect_price_for_ticker(ticker)
         
         if data:
