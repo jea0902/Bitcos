@@ -174,6 +174,21 @@ export default async function BuffetPickPage() {
             감정 대신 숫자로 투자하세요.<br />
             바로 저평가 우량주를 떠먹여 드립니다
           </p>
+
+          {/* 서비스 설명 문구 */}
+          <div className="mx-auto mt-8 max-w-3xl space-y-2 text-sm text-muted-foreground">
+            <p>
+              미국 주식 중 <span className="text-foreground font-medium">S&P 500</span>과 <span className="text-foreground font-medium">NASDAQ 100</span> 지수에 편입된 종목만 평가합니다.
+            </p>
+            <p>
+              오직 워렌 버핏의 우량주 평가 기준에 맞게 평가했으며, <span className="text-foreground font-medium">과거 데이터의 평균 지표</span>를 기반으로 가치 평가를 매겼습니다.
+              <br />
+              <span className="text-foreground font-medium">85점 이상</span>만 우량주로 평가되어 아래에 표시됩니다.
+            </p>
+            <p className="text-amber-400/80">
+              💡 각 카드를 클릭하면 구체적인 버핏의 평가 이유를 확인할 수 있습니다.
+            </p>
+          </div>
         </div>
 
         {/* DB 데이터가 있는 경우 */}

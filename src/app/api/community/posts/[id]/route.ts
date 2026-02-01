@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseAnon } from "@/lib/supabase/server";
+import { createSupabaseAnon, createSupabaseServerClient } from "@/lib/supabase/server";
 import type { 
   PostDetailResponse,
   UpdatePostRequest 
@@ -10,16 +10,39 @@ import type {
  * 
  * 설계 의도:
  * - GET: 게시글 상세 조회 + 조회수 증가
- * - PATCH: 게시글 수정 (임시: 권한 체크 없음)
- * - DELETE: 게시글 삭제 (Soft Delete)
+ * - PATCH: 게시글 수정 (권한 체크 포함)
+ * - DELETE: 게시글 삭제 (Soft Delete, 권한 체크 포함)
  * 
  * 보안:
- * - 권한 체크: 추후 인증 추가 시 본인만 수정/삭제 가능
+ * - 권한 체크: 관리자는 모든 글, 일반 회원은 본인 글만 수정/삭제 가능
  * - XSS 방지: 수정 시에도 sanitization 적용
- * 
- * 확장성:
- * - 인증 추가 시 user_id 비교로 권한 체크
  */
+
+/**
+ * 권한 검증 함수
+ * 
+ * @param currentUserId 현재 로그인한 사용자 ID
+ * @param currentUserRole 현재 사용자 role (USER/ADMIN)
+ * @param postUserId 게시글 작성자 ID
+ * @returns 수정/삭제 권한 여부
+ * 
+ * 규칙:
+ * - ADMIN: 모든 글 수정/삭제 가능
+ * - USER: 본인 글만 수정/삭제 가능
+ */
+function canModifyPost(
+  currentUserId: string,
+  currentUserRole: string,
+  postUserId: string
+): boolean {
+  // 관리자는 모든 글 수정/삭제 가능
+  if (currentUserRole === 'ADMIN') {
+    return true;
+  }
+  
+  // 일반 회원은 본인 글만 수정/삭제 가능
+  return currentUserId === postUserId;
+}
 
 type RouteContext = {
   params: Promise<{ id: string }>;
@@ -103,6 +126,17 @@ export async function PATCH(
       );
     }
 
+    // 1. 현재 로그인한 사용자 확인
+    const supabaseAuth = await createSupabaseServerClient();
+    const { data: { session } } = await supabaseAuth.auth.getSession();
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다.' },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json() as UpdatePostRequest;
     const { title, content, category } = body;
 
@@ -116,10 +150,24 @@ export async function PATCH(
 
     const supabase = createSupabaseAnon();
 
-    // 기존 게시글 확인
+    // 2. 현재 사용자 정보 조회 (role 확인)
+    const { data: currentUser, error: userError } = await supabase
+      .from('users')
+      .select('user_id, role')
+      .eq('user_id', session.user.id)
+      .single();
+
+    if (userError || !currentUser) {
+      return NextResponse.json(
+        { error: '사용자 정보를 찾을 수 없습니다.' },
+        { status: 401 }
+      );
+    }
+
+    // 3. 기존 게시글 확인 (user_id 포함)
     const { data: existingPost, error: fetchError } = await supabase
       .from('board_posts')
-      .select('post_id, board_type, deleted_at')
+      .select('post_id, user_id, board_type, deleted_at')
       .eq('post_id', postId)
       .single();
 
@@ -137,10 +185,13 @@ export async function PATCH(
       );
     }
 
-    // TODO: 인증 추가 시 권한 체크
-    // if (auth.uid() !== existingPost.user_id) {
-    //   return NextResponse.json({ error: 'Unauthorized.' }, { status: 403 });
-    // }
+    // 4. 권한 검증: 관리자 또는 본인만 수정 가능
+    if (!canModifyPost(currentUser.user_id, currentUser.role, existingPost.user_id)) {
+      return NextResponse.json(
+        { error: '이 게시글을 수정할 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
 
     // 업데이트할 데이터 준비
     const updateData: Partial<{
@@ -231,12 +282,37 @@ export async function DELETE(
       );
     }
 
+    // 1. 현재 로그인한 사용자 확인
+    const supabaseAuth = await createSupabaseServerClient();
+    const { data: { session } } = await supabaseAuth.auth.getSession();
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다.' },
+        { status: 401 }
+      );
+    }
+
     const supabase = createSupabaseAnon();
 
-    // 기존 게시글 확인
+    // 2. 현재 사용자 정보 조회 (role 확인)
+    const { data: currentUser, error: userError } = await supabase
+      .from('users')
+      .select('user_id, role')
+      .eq('user_id', session.user.id)
+      .single();
+
+    if (userError || !currentUser) {
+      return NextResponse.json(
+        { error: '사용자 정보를 찾을 수 없습니다.' },
+        { status: 401 }
+      );
+    }
+
+    // 3. 기존 게시글 확인 (user_id 포함)
     const { data: existingPost, error: fetchError } = await supabase
       .from('board_posts')
-      .select('post_id, deleted_at')
+      .select('post_id, user_id, deleted_at')
       .eq('post_id', postId)
       .single();
 
@@ -254,10 +330,13 @@ export async function DELETE(
       );
     }
 
-    // TODO: 인증 추가 시 권한 체크
-    // if (auth.uid() !== existingPost.user_id) {
-    //   return NextResponse.json({ error: 'Unauthorized.' }, { status: 403 });
-    // }
+    // 4. 권한 검증: 관리자 또는 본인만 삭제 가능
+    if (!canModifyPost(currentUser.user_id, currentUser.role, existingPost.user_id)) {
+      return NextResponse.json(
+        { error: '이 게시글을 삭제할 권한이 없습니다.' },
+        { status: 403 }
+      );
+    }
 
     // Soft Delete (deleted_at 설정)
     const { error: deleteError } = await supabase
