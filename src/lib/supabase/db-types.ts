@@ -214,3 +214,30 @@ export type PostListResponse = {
   page_size: number;
   total_pages: number;
 };
+
+// =========================================
+// 인간 지표 (데일리 투표)
+// =========================================
+
+/** sentiment_polls: 일별 투표 마스터 (KST poll_date, BTC 시가/종가 USD) */
+export type SentimentPollRow = {
+  id: string;
+  poll_date: string;
+  btc_open: number | null;
+  btc_close: number | null;
+  btc_change_pct: number | null;
+  long_count: number;
+  short_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
+/** sentiment_votes: 개별 투표 (choice: 'long' | 'short') */
+export type SentimentVoteRow = {
+  id: string;
+  poll_id: string;
+  user_id: string | null;
+  anonymous_id: string | null;
+  choice: 'long' | 'short';
+  created_at: string;
+};
