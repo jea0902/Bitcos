@@ -4,7 +4,7 @@
  * Navbar – 1차 MVP 상단 네비게이션
  *
  * 설계 의도:
- * - 좌측: Bitcos 로고 + 비전
+ * - 좌측: 보팅맨(Votingman) 로고 + 비전
  * - 우측: 홈, 모의투자, 로그인/회원가입
  * - 모바일: 햄버거 메뉴
  * - Deep Dark 테마, 접근성 고려
@@ -134,15 +134,15 @@ export function Navbar() {
             >
               {/* 로고 이미지 - 네비게이션 바 높이를 거의 다 활용 (h-14 = 56px, 여기서는 h-13 = 52px 사용) */}
               <Image
-                src="/images/logo.png"
-                alt="Bitcos 로고"
+                src="/images/logo1.png"
+                alt="보팅맨 로고"
                 width={52}
                 height={52}
-                className="h-13 w-auto object-contain"
-                style={{ height: '52px' }}
+                className="h-12 w-auto object-contain"
+                style={{ height: '42px' }}
                 priority
               />
-              <span className="text-lg">비트코스</span>
+              <span className="text-lg">Voting man</span>
             </Link>
           </div>
 

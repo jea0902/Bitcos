@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Bitcos 홈 메인 (2차 MVP)
+ * 보팅맨 홈 메인 (2차 MVP)
  *
  * - 3단 레이아웃(광고|메인|광고)은 루트 레이아웃(AdRailLayout)에서 적용됨
  * - 이 페이지는 메인 영역만 담당: 비전 문구 + 인간 지표 등 섹션 6개
@@ -30,8 +30,8 @@ export default function Home() {
 
       {/* 비전 문구 */}
       <div className="mb-12 text-center">
-        <h1 className="mb-4 text-5xl font-bold tracking-tight text-[#3b82f6] sm:text-6xl lg:text-7xl">
-          한국 대표 투자 정보 공유 플랫폼을 목표로
+        <h1 className="mb-4 text-5xl font-bold tracking-tight text-[#3b82f6] sm:text-6xl lg:text-4xl">
+          그 어떤 지표보다 신뢰성 있는 인간 지표 탈중앙화 시장 예측 플랫폼
         </h1>
       </div>
 
