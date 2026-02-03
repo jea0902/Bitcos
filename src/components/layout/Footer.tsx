@@ -24,10 +24,10 @@ export function Footer() {
             href="/"
             className="text-sm font-semibold text-foreground transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm"
           >
-            Bitcos
+            보팅맨
           </Link>
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} Bitcos. 투명한 재무 데이터 기반 투자 전략.
+            © {new Date().getFullYear()} 보팅맨(Votingman). 투명한 재무 데이터 기반 투자 전략.
           </p>
         </div>
 

@@ -8,7 +8,7 @@
 
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Navbar, Footer, TickerTape } from "@/components/layout";
+import { Navbar, Footer, AdRailLayout } from "@/components/layout";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -22,9 +22,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bitcos | 투명한 재무 데이터 기반 투자 전략 분석 플랫폼",
+  title: "보팅맨(Votingman) | 투명한 재무 데이터 기반 투자 전략 분석 플랫폼",
   description:
-    "투명하게 재무 데이터로 검증한 투자 전략 플랫폼. Bitcos에서 데이터 기반 투자를 시작하세요.",
+    "투명하게 재무 데이터로 검증한 투자 전략 플랫폼. 보팅맨에서 데이터 기반 투자를 시작하세요.",
 };
 
 export default function RootLayout({
@@ -37,7 +37,9 @@ export default function RootLayout({
       >
         <div className="flex min-h-screen flex-col">
           <Navbar />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1">
+            <AdRailLayout>{children}</AdRailLayout>
+          </main>
           <Footer />
         </div>
       </body>
