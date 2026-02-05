@@ -13,3 +13,6 @@ export { StockCard } from "./StockCard";
 export { StrategyCard } from "./StrategyCard";
 export { BuffettCard } from "./BuffettCard";
 export { HumanIndicatorSection } from "./HumanIndicatorSection";
+export { MarketTabCards } from "./MarketTabCards";
+export { UserInfoCard } from "./UserInfoCard";
+export { MarketTop5Positions } from "./MarketTop5Positions";

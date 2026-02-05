@@ -49,7 +49,7 @@ export function TopRankersBoard({ className }: { className?: string }) {
   return (
     <Card className={cn("border-border bg-card", className)}>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">비트멕스 리더보드 상위 랭커 실시간 포지션</CardTitle>
+        <CardTitle className="text-base">비트멕스 리더보드 TOP5 랭커 실시간 포지션</CardTitle>
         <CardDescription className="text-xs text-muted-foreground">
           롱/숏 비율 및 수익률 (더미)
         </CardDescription>
@@ -63,32 +63,42 @@ export function TopRankersBoard({ className }: { className?: string }) {
             숏 {shortPct}%
           </span>
         </div>
+        {/* 컬럼 헤더: 순위 | 닉네임 | 포지션 | 종목 | 수익률 */}
+        <div className="mb-1 grid grid-cols-[auto_1fr_3.5rem_3.75rem_3.75rem] items-center gap-2 px-1.5 text-xs font-medium text-muted-foreground">
+          <span className="text-right">순위</span>
+          <span className="min-w-0 overflow-hidden text-ellipsis">닉네임</span>
+          <span className="text-center">포지션</span>
+          <span className="text-center">종목</span>
+          <span className="text-right">수익률</span>
+        </div>
         <div className="space-y-2">
           {DUMMY_RANKERS.map((r) => (
             <div
               key={r.rank}
-              className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
+              className="grid grid-cols-[auto_1fr_3.5rem_3.75rem_3.75rem] items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2 text-sm"
             >
-              <span className="w-5 shrink-0 font-medium text-muted-foreground">
-                #{r.rank}
+              <span className="shrink-0 text-right font-medium text-muted-foreground tabular-nums">
+                {r.rank}위
               </span>
-              <span className="min-w-0 truncate font-medium text-foreground">
+              <span className="min-w-0 overflow-hidden text-ellipsis font-medium text-foreground">
                 {r.name}
               </span>
               <span
                 className={cn(
-                  "shrink-0 rounded px-1.5 py-0.5 text-xs font-medium",
+                  "shrink-0 rounded px-1.5 py-0.5 text-center text-xs font-medium",
                   r.position === "long"
                     ? "bg-chart-2/20 text-chart-2"
                     : "bg-chart-4/20 text-chart-4"
                 )}
               >
-                {r.position === "long" ? "L" : "S"}
+                {r.position === "long" ? "롱" : "숏"}
               </span>
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="shrink-0 text-center text-xs text-muted-foreground">
                 {r.symbol}
               </span>
-              <PnlBadge pnl={r.pnlPercent} />
+              <span className="shrink-0 text-right">
+                <PnlBadge pnl={r.pnlPercent} />
+              </span>
             </div>
           ))}
         </div>

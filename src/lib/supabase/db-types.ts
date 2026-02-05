@@ -258,3 +258,29 @@ export type PayoutHistoryRow = {
   payout_amount: number;
   settled_at: string;
 };
+
+// =========================================
+// 7단계: 시장별 시즌 통계·MMR·티어
+// =========================================
+
+/** 시장 그룹 (티어/MMR): btc | us | kr */
+export type TierMarket = "btc" | "us" | "kr";
+
+/** 티어 (배치 완료자만) */
+export type TierKey = "gold" | "platinum" | "diamond" | "master" | "challenger";
+
+/** user_season_stats: 시장별 시즌 통계 */
+export type UserSeasonStatsRow = {
+  id: string;
+  user_id: string;
+  market: TierMarket;
+  season_id: string;
+  placement_matches_played: number;
+  placement_done: boolean;
+  season_win_count: number;
+  season_total_count: number;
+  mmr: number;
+  prev_season_mmr: number | null;
+  tier: TierKey | null;
+  updated_at: string;
+};

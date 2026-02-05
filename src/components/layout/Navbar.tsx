@@ -142,7 +142,7 @@ export function Navbar() {
                 style={{ height: '42px' }}
                 priority
               />
-              <span className="text-lg">Voting man</span>
+              <span className="text-2xl font-bold">VOTING MAN</span>
             </Link>
           </div>
 

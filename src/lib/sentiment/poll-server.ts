@@ -1,6 +1,7 @@
 /**
  * 서버 전용: 오늘(KST) sentiment_polls 행 조회 또는 생성
  * - GET poll API, POST vote API에서 공통 사용
+ * - 시장별 폴: btc(비트코인), ndq/sp500(미국), kospi/kosdaq(한국)
  */
 
 import { createSupabaseAdmin } from "@/lib/supabase/server";
@@ -9,6 +10,8 @@ import {
   getTodayKstDateString,
 } from "@/lib/binance/btc-kst";
 import type { SentimentPollRow } from "@/lib/supabase/db-types";
+import type { SentimentMarket } from "@/lib/constants/sentiment-markets";
+import { isSentimentMarket } from "@/lib/constants/sentiment-markets";
 
 export type TodayPollResult = {
   poll: SentimentPollRow;
@@ -16,10 +19,13 @@ export type TodayPollResult = {
 };
 
 /**
- * 오늘(KST) poll_date에 해당하는 행을 조회. 없으면 생성 후 반환.
- * 생성 시 btc_open은 Binance API로 조회해 넣음.
+ * 오늘(KST) poll_date + market에 해당하는 행을 조회. 없으면 생성 후 반환.
+ * btc: Binance로 시가 조회. 그 외 시장: open/close는 null(추후 데이터 연동).
  */
-export async function getOrCreateTodayPoll(): Promise<TodayPollResult> {
+export async function getOrCreateTodayPollByMarket(
+  market: string
+): Promise<TodayPollResult> {
+  const m: SentimentMarket = isSentimentMarket(market) ? market : "btc";
   const admin = createSupabaseAdmin();
   const today = getTodayKstDateString();
 
@@ -27,7 +33,7 @@ export async function getOrCreateTodayPoll(): Promise<TodayPollResult> {
     .from("sentiment_polls")
     .select("*")
     .eq("poll_date", today)
-    .eq("market", "btc")
+    .eq("market", m)
     .maybeSingle();
 
   if (existing) {
@@ -37,16 +43,19 @@ export async function getOrCreateTodayPoll(): Promise<TodayPollResult> {
     };
   }
 
-  const { btc_open } = await fetchBtcOpenCloseKst(today);
-  const btcOpenRounded =
-    btc_open != null ? Math.round(btc_open * 100) / 100 : null;
+  let openValue: number | null = null;
+  if (m === "btc") {
+    const { btc_open } = await fetchBtcOpenCloseKst(today);
+    openValue = btc_open != null ? Math.round(btc_open * 100) / 100 : null;
+  }
 
   const { data: inserted, error } = await admin
     .from("sentiment_polls")
     .insert({
       poll_date: today,
-      market: "btc",
-      btc_open: btcOpenRounded,
+      market: m,
+      btc_open: openValue,
+      btc_close: null,
       long_count: 0,
       short_count: 0,
       long_coin_total: 0,
@@ -60,4 +69,11 @@ export async function getOrCreateTodayPoll(): Promise<TodayPollResult> {
     poll: inserted as SentimentPollRow,
     created: true,
   };
+}
+
+/**
+ * 오늘 비트코인 폴만 조회/생성. 기존 호환용.
+ */
+export async function getOrCreateTodayPoll(): Promise<TodayPollResult> {
+  return getOrCreateTodayPollByMarket("btc");
 }

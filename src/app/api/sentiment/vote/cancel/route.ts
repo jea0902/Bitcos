@@ -1,15 +1,16 @@
 /**
  * POST /api/sentiment/vote/cancel
- * 오늘 폴에 대한 본인 배팅 취소. 잔액 반환, bet_amount=0 처리, 폴 코인/인원 집계에서 제외.
+ * 오늘 해당 시장 폴에 대한 본인 배팅 취소. body: { market? } (미지정 시 btc).
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getOrCreateTodayPoll } from "@/lib/sentiment/poll-server";
-import { isVotingOpenKST } from "@/lib/utils/sentiment-vote";
+import { getOrCreateTodayPollByMarket } from "@/lib/sentiment/poll-server";
+import { isVotingOpenKST, getVotingCloseLabel } from "@/lib/utils/sentiment-vote";
+import { isSentimentMarket } from "@/lib/constants/sentiment-markets";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
     const serverClient = await createSupabaseServerClient();
     const {
@@ -30,13 +31,17 @@ export async function POST() {
       );
     }
 
-    if (!isVotingOpenKST()) {
+    const body = await request.json().catch(() => ({}));
+    const marketParam = body?.market ?? "btc";
+    const market = isSentimentMarket(marketParam) ? marketParam : "btc";
+
+    if (!isVotingOpenKST(market)) {
       return NextResponse.json(
         {
           success: false,
           error: {
             code: "VOTING_CLOSED",
-            message: "오늘 투표 마감 시간(20:30 KST)이 지났습니다.",
+            message: `해당 시장 투표 마감 시간(${getVotingCloseLabel(market)})이 지났습니다.`,
           },
         },
         { status: 400 }
@@ -44,7 +49,7 @@ export async function POST() {
     }
 
     const admin = createSupabaseAdmin();
-    const { poll } = await getOrCreateTodayPoll();
+    const { poll } = await getOrCreateTodayPollByMarket(market);
 
     const { data: existingVote } = await admin
       .from("sentiment_votes")
@@ -90,9 +95,10 @@ export async function POST() {
       .eq("user_id", user_id)
       .single();
     const currentBalance = Number(userRow?.voting_coin_balance ?? 0);
+    const newBalance = currentBalance + refundAmount;
     await admin
       .from("users")
-      .update({ voting_coin_balance: currentBalance + refundAmount })
+      .update({ voting_coin_balance: newBalance })
       .eq("user_id", user_id);
 
     await admin
@@ -130,8 +136,10 @@ export async function POST() {
     return NextResponse.json({
       success: true,
       data: {
+        market: poll.market ?? market,
         cancelled: true,
         refund_amount: refundAmount,
+        new_balance: newBalance,
         long_coin_total: newLongCoin,
         short_coin_total: newShortCoin,
         long_count: newLongCount,

@@ -1,14 +1,15 @@
 /**
  * POST /api/sentiment/vote
- * 인간 지표 투표 (롱/숏 + 보팅코인 N개). 로그인 필수, 마감 20:30 KST 검증.
- * 1인 1폴 1행, 마감 전 수정·취소 가능. 잔액 차감/반환 및 long_coin_total/short_coin_total 반영.
+ * 인간 지표 투표 (롱/숏 + 보팅코인 N개). 로그인 필수, 시장별 마감 KST 검증.
+ * body: { market?, choice, bet_amount }. market 미지정 시 btc.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getOrCreateTodayPoll } from "@/lib/sentiment/poll-server";
-import { isVotingOpenKST } from "@/lib/utils/sentiment-vote";
+import { getOrCreateTodayPollByMarket } from "@/lib/sentiment/poll-server";
+import { isVotingOpenKST, getVotingCloseLabel } from "@/lib/utils/sentiment-vote";
+import { isSentimentMarket } from "@/lib/constants/sentiment-markets";
 
 const MIN_BET = 10;
 
@@ -33,20 +34,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!isVotingOpenKST()) {
+    const body = await request.json();
+    const marketParam = body?.market ?? "btc";
+    const market = isSentimentMarket(marketParam) ? marketParam : "btc";
+
+    if (!isVotingOpenKST(market)) {
       return NextResponse.json(
         {
           success: false,
           error: {
             code: "VOTING_CLOSED",
-            message: "오늘 투표 마감 시간(20:30 KST)이 지났습니다.",
+            message: `해당 시장 투표 마감 시간(${getVotingCloseLabel(market)})이 지났습니다.`,
           },
         },
         { status: 400 }
       );
     }
 
-    const body = await request.json();
     const choice = body?.choice as string | undefined;
     const betAmountRaw = body?.bet_amount;
 
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createSupabaseAdmin();
-    const { poll } = await getOrCreateTodayPoll();
+    const { poll } = await getOrCreateTodayPollByMarket(market);
 
     const { data: userRow } = await admin
       .from("users")
@@ -156,8 +160,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
+        market: poll.market ?? market,
         choice,
         bet_amount: betAmount,
+        new_balance: newBalance,
         long_coin_total: newLongCoin,
         short_coin_total: newShortCoin,
         long_count: newLongCount,

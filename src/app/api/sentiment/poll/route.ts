@@ -1,17 +1,23 @@
 /**
  * GET /api/sentiment/poll
  * 오늘(KST) 인간 지표 투표 정보 조회 (poll_id, 시가/종가, 롱/숏 수·코인 집계)
+ * - 쿼리: ?market=btc | ndq | sp500 | kospi | kosdaq (미지정 시 btc)
  * - 로그인 시 my_vote(choice, bet_amount) 포함
  */
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdmin } from "@/lib/supabase/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { getOrCreateTodayPoll } from "@/lib/sentiment/poll-server";
+import { getOrCreateTodayPollByMarket } from "@/lib/sentiment/poll-server";
+import { isSentimentMarket } from "@/lib/constants/sentiment-markets";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { poll } = await getOrCreateTodayPoll();
+    const { searchParams } = new URL(request.url);
+    const marketParam = searchParams.get("market") ?? "btc";
+    const market = isSentimentMarket(marketParam) ? marketParam : "btc";
+
+    const { poll } = await getOrCreateTodayPollByMarket(market);
 
     let myVote: { choice: "long" | "short"; bet_amount: number } | null = null;
     const serverClient = await createSupabaseServerClient();
@@ -37,6 +43,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       data: {
+        market: poll.market ?? market,
         poll_id: poll.id,
         poll_date: poll.poll_date,
         btc_open: poll.btc_open,
