@@ -112,6 +112,110 @@ Vercel Cron을 쓰지 않고, **cron-job.org** 같은 외부 서비스로 “매
 
 ---
 
+## 지금 당장 크론 동작 테스트 + DB 확인
+
+### 1) CRON_SECRET 로컬에 넣기
+
+- 프로젝트 루트의 `.env.local` 파일을 열고 다음 한 줄을 추가합니다 (이미 있으면 수정).
+  ```env
+  CRON_SECRET=아무거나_긴_비밀문자_32자이상
+  ```
+- 테스트용이라면 예: `CRON_SECRET=test-secret-12345-long-enough` 처럼 아무 값이나 32자 이상 넣어도 됩니다. **배포 환경에서는 반드시 랜덤한 강한 비밀값을 쓰세요.**
+
+### 2) 로컬 서버 실행
+
+- 터미널에서:
+  ```bash
+  npm run dev
+  ```
+- `http://localhost:3000` (또는 표시된 포트)에서 서버가 떠 있는지 확인합니다.
+
+### 3) 크론 API 수동 호출 (일일 job과 동일한 동작)
+
+- **PowerShell**에서 (한 줄로):
+  ```powershell
+  curl.exe -X GET "http://localhost:3000/api/cron/btc-ohlc-daily" -H "Authorization: Bearer test-secret-12345-long-enough"
+  ```
+  - `.env.local`에 넣은 `CRON_SECRET` 값과 `Bearer ` 뒤 문자열을 **동일하게** 맞추세요.
+- **성공 시** 응답 예:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "BTC OHLC daily cron completed",
+      "kst_today": "2025-02-06",
+      "results": [
+        { "date": "2025-02-05", "btc_open": 12345.67, "btc_close": 67890.12, "poll_created": false },
+        { "date": "2025-02-06", "btc_open": 67890.12, "btc_close": null, "poll_created": false }
+      ]
+    }
+  }
+  ```
+- `"success": true` 이고 `results` 안에 `btc_open` / `btc_close` 숫자가 보이면, **바이낸스 조회 → DB 저장**이 정상 동작한 것입니다.
+
+### 4) DB에서 확인
+
+1. **Supabase** 대시보드 → **Table Editor** → `sentiment_polls` 테이블 선택.
+2. **필터**: `market` = `btc`, `poll_date`가 **어제·오늘** (예: 2025-02-05, 2025-02-06) 인 행을 봅니다.
+3. 해당 행의 **btc_open**, **btc_close** 컬럼에 값이 들어가 있으면 크론 로직이 DB까지 잘 반영된 것입니다. (오늘 날짜는 `btc_close`가 아직 null일 수 있습니다.)
+
+---
+
+## 2월 4일·5일·6일 데이터 일괄 넣기 (백필)
+
+특정 과거 날짜(예: 2/4, 2/5, 2/6)에 대해 **폴이 없으면 만들고**, 해당일 비트코인 시가·종가를 **한 번에** DB에 넣으려면 **백필 API**를 사용합니다.
+
+### 1) CRON_SECRET 준비
+
+- 위 “지금 당장 테스트”와 같이 `.env.local`에 `CRON_SECRET`이 있어야 합니다. 로컬 서버는 `npm run dev` 로 띄워 둡니다.
+
+### 2) 백필 API 호출
+
+- **PowerShell**에서 (두 줄: JSON 변수 넣고 호출):
+  ```powershell
+  $body = '{"poll_dates": ["2025-02-04", "2025-02-05", "2025-02-06"]}'
+  curl.exe -X POST "http://localhost:3000/api/cron/btc-ohlc-backfill" -H "Authorization: Bearer test-secret-12345-long-enough" -H "Content-Type: application/json" -d $body
+  ```
+  - `Bearer ` 뒤는 본인 `.env.local`의 `CRON_SECRET` 값으로 바꾸세요.
+  - `poll_dates` 배열에 원하는 날짜를 더 넣어도 됩니다 (형식: `YYYY-MM-DD`).
+- **한 줄로** 보내려면:
+  ```powershell
+  curl.exe -X POST "http://localhost:3000/api/cron/btc-ohlc-backfill" -H "Authorization: Bearer test-secret-12345-long-enough" -H "Content-Type: application/json" -d "{`"poll_dates`": [`"2025-02-04`", `"2025-02-05`", `"2025-02-06`"]}"
+  ```
+  (PowerShell에서는 따옴표 escape에 백틱 `` ` `` 사용.)
+
+- **성공 시** 응답 예:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "message": "BTC OHLC backfill completed",
+      "count": 3,
+      "results": [
+        { "poll_date": "2025-02-04", "btc_open": ..., "btc_close": ..., "poll_created": true },
+        { "poll_date": "2025-02-05", "btc_open": ..., "btc_close": ..., "poll_created": true },
+        { "poll_date": "2025-02-06", "btc_open": ..., "btc_close": ..., "poll_created": true }
+      ]
+    }
+  }
+  ```
+
+### 3) DB에서 백필 결과 확인
+
+- Supabase → **Table Editor** → `sentiment_polls`
+- `market` = `btc`, `poll_date` IN (2025-02-04, 2025-02-05, 2025-02-06) 인 행을 확인합니다.
+- 각 행에 **btc_open**, **btc_close**가 채워져 있으면 2/4, 2/5, 2/6 데이터가 모두 들어간 것입니다.
+
+### 4) 배포 환경에서 백필할 때
+
+- URL만 프로덕션으로 바꾸고, Vercel에 설정한 **CRON_SECRET** 값을 사용하면 됩니다.
+  ```powershell
+  $body = '{"poll_dates": ["2025-02-04", "2025-02-05", "2025-02-06"]}'
+  curl.exe -X POST "https://본인-도메인.vercel.app/api/cron/btc-ohlc-backfill" -H "Authorization: Bearer 여기에_Vercel에_넣은_CRON_SECRET" -H "Content-Type: application/json" -d $body
+  ```
+
+---
+
 ## 정리
 
 | 질문 | 답 |
